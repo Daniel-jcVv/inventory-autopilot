@@ -9,3 +9,4 @@ __pycache__/
 data/A3 INVENTORY.xlsx
 data/Machining Baseline File Edge.xlsx
 data/.~lock.*
+data/inventory.db
