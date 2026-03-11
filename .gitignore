@@ -1,0 +1,11 @@
+venv/
+output/
+__pycache__/
+*.pyc
+.env
+.claude/
+
+# Raw data (sensible, no subir)
+data/A3 INVENTORY.xlsx
+data/Machining Baseline File Edge.xlsx
+data/.~lock.*
