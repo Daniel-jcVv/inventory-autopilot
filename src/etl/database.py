@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 import pandas as pd
+import numpy as np
 
 load_dotenv()
 
@@ -77,8 +78,9 @@ def save_to_db(inv, orders, engine):
     Returns:
         Diccionario con filas guardadas por tabla.
     """
-    inv = normalize_columns(inv)
-    orders = normalize_columns(orders)
+    inv = normalize_columns(inv.copy())
+    inv = inv.replace([np.inf, -np.inf], None)
+    orders = normalize_columns(orders.copy())
     summary = build_summary(inv, orders)
 
     inv.to_sql("inventory", engine, if_exists="replace", index=False)
