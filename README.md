@@ -1,6 +1,6 @@
 # Inventory Autopilot
 
-Automated inventory health pipeline: raw ERP Excel exports → cleaning → analysis → database → dashboard → alerts.
+Automated inventory health pipeline: raw ERP Excel exports → cleaning → analysis → SQL Server → dashboard → API → alerts.
 
 Built with real (anonymized) warehouse data from a Tier 1 automotive manufacturer. Detects **$5.6M in dead stock** and **$2.5M in redundant orders** across 16,249 inventory items.
 
@@ -8,9 +8,10 @@ Built with real (anonymized) warehouse data from a Tier 1 automotive manufacture
 
 | Metric | Value |
 |--------|-------|
-| Dead stock items | 3,795 (23.4%) — $5.6M |
+| Dead stock items | 3,795 (23.4%) — $5.6M (61.8% of total value) |
 | Overstock items | 1,234 — $1.9M |
 | Redundant orders | 2,538 (66.6%) — $2.5M |
+| Reorder risk items | 1,871 — $390K |
 | Orders > 1 year old | 209 |
 
 ## Features
@@ -21,31 +22,34 @@ Built with real (anonymized) warehouse data from a Tier 1 automotive manufacture
 - **ABC classification** — Pareto analysis (80/15/5) on inventory value
 - **Days of Supply (DOS)** — stock runway per item
 - **Reorder risk** — items with less than 30 days of stock
-- **Demand forecasting** — Prophet/ARIMA on synthetic consumption data
-- **Automated alerts** — n8n triggers pipeline on new ERP export, sends email/Slack
+- **Enterprise severity alerts** — dead stock % thresholds (low/medium/high/critical)
+- **Automated alerts** — n8n workflow: Schedule → FastAPI → Gmail + Slack
+- **AI chat** — natural language queries over inventory data (Groq + Llama 3.3 70B)
 
 ## Architecture
 
 ```
 ERP Excel export
-    │
-    ▼
+    |
+    v
   Extract (pandas + openpyxl)
-    │
-    ▼
-  Clean (drop sparse rows/cols, fix dates)
-    │
-    ▼
-  Enrich (dead stock, overstock, ABC, DOS flags)
-    │
-    ▼
-  SQLite (SQLAlchemy)
-    │
-    ▼
+    |
+    v
+  Clean (drop sparse rows/cols, fix dates, flags)
+    |
+    v
+  Enrich (dead stock, overstock, ABC, DOS, reorder risk)
+    |
+    v
+  SQL Server (SQLAlchemy + Docker)
+    |
+    v
   Dashboard (Streamlit + Plotly + Groq chat)
-    │
-    ▼
-  n8n (automated triggers + Slack/email alerts)
+    |
+    +---> FastAPI (/health, /summary, /alerts with severity)
+    |         |
+    v         v
+  Excel    n8n (Schedule Trigger --> HTTP Request --> If severity != low --> Gmail + Slack)
 ```
 
 ## Project Structure
@@ -53,16 +57,31 @@ ERP Excel export
 ```
 inventory-autopilot/
 ├── main.py                  # ETL orchestrator
+├── app.py                   # Streamlit dashboard
+├── api.py                   # FastAPI (3 endpoints)
+├── docker-compose.yml       # SQL Server + n8n
 ├── src/
 │   ├── extract.py           # Read Excel (2 sheets)
 │   ├── clean.py             # Drop junk rows/cols, flags
+│   ├── enrich.py            # ABC, DOS, dead stock, overstock, reorder risk
+│   ├── alerts.py            # Severity thresholds + alert logic
 │   ├── export.py            # Formatted Excel output (3 sheets)
-│   └── anonymize.py         # Anonymize sensitive columns
+│   ├── database.py          # SQL Server (3 tables)
+│   ├── anonymize.py         # Anonymize sensitive columns
+│   └── dashboard/
+│       ├── queries.py       # SQL queries
+│       ├── charts.py        # Plotly charts
+│       └── chat.py          # Groq AI chat
+├── workflows/
+│   └── inventory_alerts_daily_report.json  # n8n workflow
 ├── notebooks/
 │   ├── 01_eda.ipynb         # Exploratory Data Analysis
-│   └── 02_clean.ipynb       # Data cleaning walkthrough
+│   ├── 02_clean.ipynb       # Data cleaning walkthrough
+│   ├── 03_enrich.ipynb      # Enrichment logic
+│   ├── 04_analytics.ipynb   # Analytics deep dive
+│   └── 05_database.ipynb    # Database operations
 ├── docs/
-│   └── BUSINESS_RULES.md    # Business rules and tier roadmap
+│   └── BUSINESS_RULES.md    # Business rules and severity thresholds
 ├── data/
 │   └── inventory_anon.xlsx  # Anonymized dataset
 └── requirements.txt
@@ -76,7 +95,30 @@ cd inventory-autopilot
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python3 main.py
+```
+
+Start SQL Server and n8n:
+
+```bash
+docker compose up -d
+```
+
+Run the ETL pipeline:
+
+```bash
+python main.py
+```
+
+Launch the dashboard:
+
+```bash
+streamlit run app.py
+```
+
+Start the API:
+
+```bash
+uvicorn api:app --port 8001
 ```
 
 ## Input Data
@@ -85,32 +127,32 @@ Source: `data/inventory_anon.xlsx` (anonymized ERP export)
 
 | Sheet | Rows | Columns |
 |-------|------|---------|
-| Inventory by Storeroom | 16,249 | 59 |
-| OPEN ORDER | 3,813 | 15 |
+| Inventory by Storeroom | 16,249 | 61 |
+| OPEN ORDER | 3,813 | 18 |
 
 ## Stack
 
 | Tool | Purpose |
 |------|---------|
 | pandas + openpyxl | ETL and Excel export |
-| SQLite + SQLAlchemy | Database |
+| SQL Server + SQLAlchemy | Database (Docker) |
 | Streamlit + Plotly | Dashboard |
 | Groq (Llama 3.3 70B) | AI chat (natural language SQL) |
-| FastAPI | REST API |
-| n8n | Workflow automation |
-| scikit-learn | k-means clustering |
-| Prophet | Demand forecasting |
+| FastAPI + uvicorn | REST API |
+| n8n | Workflow automation (Gmail + Slack alerts) |
 
 ## Roadmap
 
 - [x] EDA notebook
 - [x] Data cleaning pipeline
-- [ ] Enrichment (ABC, DOS, reorder risk)
-- [ ] SQLite database
-- [ ] Streamlit dashboard
-- [ ] FastAPI endpoint
-- [ ] n8n automation workflow
-- [ ] ML: demand forecasting + clustering
+- [x] Enrichment (ABC, DOS, reorder risk)
+- [x] SQL Server database
+- [x] Streamlit dashboard + AI chat
+- [x] FastAPI API (3 endpoints)
+- [x] n8n automation workflow (Gmail + Slack)
+- [x] Enterprise severity alerts (thresholds)
+- [ ] Dashboard improvements
+- [ ] Deploy (Streamlit Cloud + n8n Cloud)
 
 ## License
 
