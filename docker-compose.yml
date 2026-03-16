@@ -6,3 +6,20 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+  n8n:
+    image: n8nio/n8n
+    ports:
+      - "5679:5678"
+    environment:
+      GENERIC_TIMEZONE: America/Mexico_City
+      TZ: America/Mexico_City
+      WEBHOOK_URL: http://localhost:5679
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  sqlserver_data:
+  n8n_data:
