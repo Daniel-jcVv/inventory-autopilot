@@ -75,6 +75,20 @@ Archivo: `data/A3 INVENTORY.xlsx` (datos reales de ZF TRW, anonimizados)
 6. n8n manda alerta a Slack si dead stock > $5M (Slack node)
 ```
 
+### Umbrales de severidad — Dead Stock
+
+| Nivel          | Dead stock % del valor total | Severidad      |
+|----------------|------------------------------|----------------|
+| Saludable      | < 5%                         | low            |
+| Advertencia    | 5-15%                        | medium         |
+| Critico        | 15-25%                       | high           |
+| No competitivo | > 25%                        | critical       |
+
+Formula: `dead_stock_value / total_inventory_value * 100`
+
+El endpoint `/alerts` calcula el porcentaje y devuelve el campo `severity`.
+El nodo If de n8n evalua: `severity != "low"` → notificar.
+
 ### Deploy
 
 - Dashboard: Streamlit Cloud
