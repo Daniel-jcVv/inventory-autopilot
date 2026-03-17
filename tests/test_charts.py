@@ -1,79 +1,114 @@
 import pandas as pd
 import plotly.graph_objects as go
 from src.dashboard.charts import (
-    chart_abc_value,
-    chart_value_by_status,
-    chart_treemap_top_items,
+    chart_capital_at_risk,
+    chart_value_by_storeroom,
+    chart_top_items,
     chart_orders_aging,
+    chart_status_by_storeroom,
 )
 
 
-def make_inventory(n=10):
+def make_inventory(n=20):
     """Crea DataFrame de inventario sintetico para tests."""
     return pd.DataFrame({
-        "abc": ["A"] * 3 + ["B"] * 3 + ["C"] * 4,
-        "inventory_value": [1000] * n,
-        "dead_stock": [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        "overstock": [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+        "item_number": [f"ITM-{i:04d}" for i in range(n)],
         "item_description": [f"Item {i}" for i in range(n)],
-        "store_room": ["SR1"] * n,
+        "store_room": ["ROOM-1"] * 10 + ["ROOM-2"] * 10,
+        "inventory_value": [1000 * (i + 1) for i in range(n)],
+        "dead_stock": [1] * 5 + [0] * 15,
+        "overstock": [0] * 5 + [1] * 3 + [0] * 12,
+        "balance_on_hand": [10] * n,
+        "reorder_risk": [1] * 4 + [0] * 16,
     })
+
+
+def make_summary():
+    """Crea dict de summary sintetico."""
+    return {
+        "dead_stock_value": 15000,
+        "overstock_value": 18000,
+        "redundant_value": 5000,
+        "total_value": 210000,
+    }
 
 
 def make_orders():
-    """Crea DataFrame de ordenes sintetico para tests."""
+    """Crea DataFrame de ordenes sintetico."""
     return pd.DataFrame({
-        "age_days": [30, 120, 200, 400, 500],
-        "open_value": [100, 200, 300, 400, 500],
-        "redundant_order": [0, 1, 0, 1, 1],
+        "item_number": [f"ITM-{i:04d}" for i in range(8)],
+        "age_days": [30, 120, 200, 400, 500, 60, 90, 180],
+        "open_value": [100, 200, 300, 400, 500, 150, 250, 350],
+        "redundant_order": [0, 1, 0, 1, 1, 0, 0, 1],
     })
 
 
-def test_chart_abc_value_returns_figure():
+# --- Capital at Risk ---
+
+def test_capital_at_risk_returns_figure():
     inv = make_inventory()
-    fig = chart_abc_value(inv)
+    fig = chart_capital_at_risk(inv, make_summary())
     assert isinstance(fig, go.Figure)
 
 
-def test_chart_abc_value_has_3_bars():
+def test_capital_at_risk_has_3_bars():
     inv = make_inventory()
-    fig = chart_abc_value(inv)
-    assert len(fig.data) == 3
+    fig = chart_capital_at_risk(inv, make_summary())
+    assert len(fig.data[0].y) == 3
 
 
-def test_chart_value_by_status_returns_figure():
+# --- Value by Storeroom ---
+
+def test_value_by_storeroom_returns_figure():
     inv = make_inventory()
-    fig = chart_value_by_status(inv)
+    fig = chart_value_by_storeroom(inv)
     assert isinstance(fig, go.Figure)
 
 
-def test_chart_value_by_status_is_donut():
+def test_value_by_storeroom_respects_top_n():
     inv = make_inventory()
-    fig = chart_value_by_status(inv)
-    trace = fig.data[0]
-    assert trace.hole == 0.45
+    fig = chart_value_by_storeroom(inv, top_n=1)
+    assert len(fig.data[0].y) == 1
 
 
-def test_chart_treemap_returns_figure():
+# --- Top Items ---
+
+def test_top_items_returns_figure():
     inv = make_inventory()
-    fig = chart_treemap_top_items(inv, top_n=5)
+    fig = chart_top_items(inv)
     assert isinstance(fig, go.Figure)
 
 
-def test_chart_treemap_respects_top_n():
+def test_top_items_respects_top_n():
     inv = make_inventory()
-    fig = chart_treemap_top_items(inv, top_n=5)
-    assert len(fig.data[0].labels) == 5
+    fig = chart_top_items(inv, top_n=5)
+    assert len(fig.data[0].y) == 5
 
 
-def test_chart_orders_aging_returns_figure():
+# --- Orders Aging ---
+
+def test_orders_aging_returns_figure():
     orders = make_orders()
     fig = chart_orders_aging(orders)
     assert isinstance(fig, go.Figure)
 
 
-def test_chart_orders_aging_has_two_traces():
-    """Debe tener 2 traces: Redundante y Valida."""
+def test_orders_aging_has_two_traces():
     orders = make_orders()
     fig = chart_orders_aging(orders)
     assert len(fig.data) == 2
+
+
+# --- Status by Storeroom ---
+
+def test_status_by_storeroom_returns_figure():
+    inv = make_inventory()
+    fig = chart_status_by_storeroom(inv)
+    assert isinstance(fig, go.Figure)
+
+
+def test_status_by_storeroom_has_status_traces():
+    inv = make_inventory()
+    fig = chart_status_by_storeroom(inv)
+    trace_names = {t.name for t in fig.data}
+    assert "Dead Stock" in trace_names or "Normal" in trace_names

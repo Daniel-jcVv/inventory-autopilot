@@ -3,7 +3,7 @@ from openai import OpenAI
 from sqlalchemy import text
 from src.etl.database import get_engine
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT_TEMPLATE = (
     "Eres un asistente de inventarios. Respondes preguntas "
     "usando SQL contra una base de datos con estas tablas:\n\n"
     "TABLA: inventory (16,249 filas)\n"
@@ -14,6 +14,7 @@ SYSTEM_PROMPT = (
     "dos (days of supply), reorder_risk (1/0), "
     "status_code, commodity, item_lead_time, "
     "last_used, last_recieved\n\n"
+    "Valores de store_room: {storerooms}\n\n"
     "TABLA: orders (3,813 filas)\n"
     "Columnas: item_number, item_description, po_number, "
     "issue_date, order_qty, open_qty, open_value, price, "
@@ -29,8 +30,23 @@ SYSTEM_PROMPT = (
     "- Responde en espanol.\n"
     "- Si no es sobre inventario, di que solo ayudas con eso.\n"
     "- Formatea numeros con comas y simbolo $.\n"
-    "- Se conciso pero informativo."
+    "- Se conciso pero informativo.\n"
+    "- Cuando el usuario mencione 'room X' o 'storeroom X', "
+    "usa el valor exacto de store_room de la lista de arriba "
+    "(por ejemplo, si el usuario dice 'room 2', busca el valor "
+    "que contenga '2' en la lista)."
 )
+
+
+def build_system_prompt() -> str:
+    """Construye el system prompt con valores dinamicos de la DB."""
+    engine = get_engine()
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("SELECT DISTINCT store_room FROM inventory ORDER BY store_room")
+        )
+        rooms = [row[0] for row in result if row[0] is not None]
+    return SYSTEM_PROMPT_TEMPLATE.format(storerooms=", ".join(rooms))
 
 
 def get_client() -> OpenAI:
@@ -91,7 +107,7 @@ def ask(question: str, history: list[dict] | None = None) -> str:
         Respuesta en lenguaje natural.
     """
     client = get_client()
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": build_system_prompt()}]
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": question})
