@@ -8,3 +8,4 @@ pytest>=8.0
 plotly>=5.18
 openai>=1.0
 streamlit>=1.30
+streamlit-echarts>=0.4
