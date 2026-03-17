@@ -121,4 +121,24 @@ The AI chat feature uses Groq (Llama 3.3 70B) instead of OpenAI because:
 | src/export.py | Data | Formatted Excel output |
 | src/dashboard/queries.py | Data | SQL queries for dashboard |
 | src/dashboard/charts.py | Presentation | Plotly chart builders |
+| src/dashboard/insights.py | Presentation | Auto-generated insights per chart |
 | src/dashboard/chat.py | Service | Groq AI chat integration |
+
+## Technology Stack
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Python | 3.12 | Core language |
+| pandas | >= 2.0 | Data manipulation and ETL |
+| openpyxl | >= 3.1 | Excel read/write |
+| SQL Server | 2022 | Production database (Docker) |
+| SQLAlchemy | >= 2.0 | ORM and database access |
+| pyodbc | >= 5.0 | SQL Server driver |
+| Streamlit | >= 1.30 | Dashboard framework |
+| Plotly | >= 5.18 | Interactive charts |
+| Groq (Llama 3.3 70B) | - | AI chat (natural language to SQL) |
+| FastAPI | - | REST API (3 endpoints) |
+| uvicorn | - | ASGI server |
+| n8n | 2.11 | Workflow automation (self-hosted, Docker) |
+| Docker Compose | - | Container orchestration (SQL Server + n8n) |
+| pytest | >= 8.0 | Testing framework (33 tests) |
