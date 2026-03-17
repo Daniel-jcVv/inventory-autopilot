@@ -4,6 +4,7 @@ from src.dashboard.queries import (
     load_inventory,
     load_orders,
     load_summary,
+    is_demo_mode,
 )
 from src.dashboard.charts import (
     chart_capital_at_risk,
@@ -142,30 +143,33 @@ summary = get_summary()
 # --- Sidebar: Chat AI ---
 st.sidebar.header("Chat AI — Ask about your inventory")
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if is_demo_mode():
+    st.sidebar.info("Chat AI requires SQL Server. Running in demo mode (Excel data).")
+else:
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-for msg in st.session_state.chat_history:
-    with st.sidebar.chat_message(msg["role"]):
-        st.sidebar.markdown(msg["content"])
+    for msg in st.session_state.chat_history:
+        with st.sidebar.chat_message(msg["role"]):
+            st.sidebar.markdown(msg["content"])
 
-if prompt := st.sidebar.chat_input("Ej: Cuantos items dead stock hay?"):
-    st.session_state.chat_history.append(
-        {"role": "user", "content": prompt}
-    )
-    with st.sidebar.chat_message("user"):
-        st.sidebar.markdown(prompt)
+    if prompt := st.sidebar.chat_input("Ej: Cuantos items dead stock hay?"):
+        st.session_state.chat_history.append(
+            {"role": "user", "content": prompt}
+        )
+        with st.sidebar.chat_message("user"):
+            st.sidebar.markdown(prompt)
 
-    with st.sidebar.chat_message("assistant"):
-        with st.spinner("Consultando..."):
-            response = ask(
-                prompt, st.session_state.chat_history[:-1]
-            )
-        st.sidebar.markdown(response)
+        with st.sidebar.chat_message("assistant"):
+            with st.spinner("Consultando..."):
+                response = ask(
+                    prompt, st.session_state.chat_history[:-1]
+                )
+            st.sidebar.markdown(response)
 
-    st.session_state.chat_history.append(
-        {"role": "assistant", "content": response}
-    )
+        st.session_state.chat_history.append(
+            {"role": "assistant", "content": response}
+        )
 
 # --- Header + Filtros ---
 st.title("Smart Inventory Management")
